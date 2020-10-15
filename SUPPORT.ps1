@@ -199,15 +199,18 @@ process{ $_|
 }
 
 function Get-GapsInLogs{
-param($threshold=100000)
+param($threshold=1000000)
 begin{$prevdate=get-date}
 process{
     foreach ($l in [System.IO.File]::ReadLines($_.fullname)){
-        $tmpdate=($l.substring(20,23)|get-date);
-        $diff=($tmpdate-$prevdate).ticks;
-        if($diff -ge $threshold){
-            [pscustomobject]@{timestamp=$prevdate;ticks=$diff}
+        try{
+            $tmpdate=($l.substring(20,23)|get-date);
+            $diff=($tmpdate-$prevdate).ticks;
+            if($diff -ge $threshold){
+                [pscustomobject]@{timestamp=$prevdate;ticks=$diff}
+            }
+        }catch{} finally{
+            $prevdate=$tmpdate
         }
-        $prevdate=$tmpdate
      }
 }}                                                                                                                                         $tmpdate
