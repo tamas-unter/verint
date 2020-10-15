@@ -204,7 +204,7 @@ begin{$prevdate=get-date}
 process{
     foreach ($l in [System.IO.File]::ReadLines($_.fullname)){
         try{
-            $tmpdate=($l.substring(20,23)|get-date);
+            $tmpdate=($l.substring(20,23)|get-date -ErrorAction SilentlyContinue);
             $diff=($tmpdate-$prevdate).ticks;
             if($diff -ge $threshold){
                 [pscustomobject]@{timestamp=$prevdate;ticks=$diff}
