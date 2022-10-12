@@ -69,7 +69,7 @@ Function Update-Signature{
     if(test-path -PathType Leaf "\\$server\e$\IMPACT360\SOFTWARE\ContactStore\ChecksumUtil.exe") {$cmd="\\$server\e$\IMPACT360\SOFTWARE\ContactStore\ChecksumUtil.exe"} else
 		{$cmd="\\$server\e$\IMPACT360\SOFTWARE\ContactStore\Tools\ChecksumUtil.exe"}
 	
-    iex "$cmd -g $configFile"
+    iex "$cmd -g ""$configFile"""
     
 }
 
@@ -113,7 +113,7 @@ Function Do-FixExcercise{
 	param($sender,$e)
 	$index=$sender.TabIndex
 	Write-Host ("Fixing excercise {0}" -f $index)
-	Fix-Config -role $Global:excercises[$index].role -confFile $Global:excercises[$index].confFile -services $Global:excercises[$index].services 
+	Fix-Config -role $Global:excercises[$index].role -confFile $Global:excercises[$index].confFile -services $Global:excercises[$index].services  -fixFunction $Global:excercises[$index].fixFunction
 }
 
 
@@ -212,6 +212,7 @@ $Global:excercises=@(
 		}
 	},
 	#4: TSAPI
+	## TODO> checksumutil is not needed here. in fact, we should avoid it
 	@{
 		role="INTEGRATION_FRAMEWORK"
 		confFile='\C$\Program Files (x86)\Avaya\AE Services\TSAPI Client\TSLIB.INI'
@@ -246,10 +247,11 @@ $Global:excercises=@(
 		confFile='HKLM:\SOFTWARE\WOW6432Node\Witness Systems\eQuality Agent\Capture\CurrentVersion\'
 		breakFunction={
 			param($regPath)
-			Invoke-Command -ComputerName "ADVDSK9" {
+			Invoke-Command -ComputerName "ADVDSK9" -ArgumentList $regPath -ScriptBlock {
+				param($regPath)
 				get-service *screencapture*|stop-service
 				$oldRIS=Get-ItemProperty -path $regPath -name IntegrationServicesServersList
-				$oldRIS|out-file $env:TEMP\oldris.txt
+				$oldRIS|select -ExpandProperty IntegrationServicesServersList|out-file $env:TEMP\oldris.txt
 				
 				$newRIS="dummy.wfo.verint.training:29522"
 				Set-ItemProperty -Path $regPath -name IntegrationServicesServersList -Value $newRIS
@@ -259,7 +261,8 @@ $Global:excercises=@(
 		}
 		fixFunction={
 			param($regPath)
-			Invoke-Command -ComputerName "ADVDSK9" {
+			Invoke-Command -ComputerName "ADVDSK9" -ArgumentList $regPath -ScriptBlock {
+				param($regPath)
 				get-service *screencapture*|stop-service
 				$newRIS=cat $env:TEMP\oldris.txt
 				Set-ItemProperty -Path $regPath -name IntegrationServicesServersList -Value $newRIS
