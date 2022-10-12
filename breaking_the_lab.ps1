@@ -149,8 +149,7 @@ Function Break-Config{
 			Backup-confFile $cffull
 			
 			Invoke-Command -ArgumentList $cffull -ScriptBlock $breakFunction
-			
-			Update-Signature $_ $cffull
+			if($confFile -match "\.xml$") {Update-Signature $_ $cffull}	
 			Start-RecorderService -server $_ -service $services
 		}
 	} else {
