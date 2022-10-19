@@ -1,18 +1,16 @@
-﻿<# v1.1 10/12/2022
+﻿<# v1.32 10/19/2022
 Scripts to break (and fix) recorder functionality - for training purposes
 
 
 tamas.pasztor@verint.com
 
 
-#TODO
-- execute each function on their role only.
-- E:\Impact360\Software\ vs.  \\$server\E$\Impact360\Software\
 # GOOD TO HAVE
 - state machine for each excercise (broken? fixed?)
 - progress bar for service restarts etc.
 - fix everything before exit??
-- 
+- feedback after the operation was successful
+- error handling
 #>
 ########## GENERIC FUNCTIONS
 
