@@ -1,4 +1,4 @@
-﻿<# v1.32 10/19/2022
+﻿<# v1.33 11/10/2022
 Scripts to break (and fix) recorder functionality - for training purposes
 
 
@@ -12,6 +12,10 @@ tamas.pasztor@verint.com
 - feedback after the operation was successful
 - error handling
 #>
+
+### DESKTOP hostnames
+$Global:desktops=@("B155-D01","B155-D02")
+
 ########## GENERIC FUNCTIONS
 
 Function Restart-RecorderServices{
@@ -227,7 +231,8 @@ $Global:excercises=@(
 				)
 			)			
 		}
-	},
+	}
+<#,
 	########TODO
 	#5: Extensions
 	@{
@@ -238,35 +243,41 @@ $Global:excercises=@(
 			param($cffull)
 			
 		}
-	},
-	#6: SCMRis
+	} #>
+<#
+,
+	#5: SCMRis
 	@{
 		confFile='HKLM:\SOFTWARE\WOW6432Node\Witness Systems\eQuality Agent\Capture\CurrentVersion\'
 		breakFunction={
 			param($regPath)
-			Invoke-Command -ComputerName "ADVDSK9" -ArgumentList $regPath -ScriptBlock {
-				param($regPath)
-				get-service *screencapture*|stop-service
-				$oldRIS=Get-ItemProperty -path $regPath -name IntegrationServicesServersList
-				$oldRIS|select -ExpandProperty IntegrationServicesServersList|out-file $env:TEMP\oldris.txt
+            $Global:desktops|%{
+			    Invoke-Command -ComputerName $_ -ArgumentList $regPath -ScriptBlock {
+				    param($regPath)
+				    get-service *screencapture*|stop-service
+				    $oldRIS=Get-ItemProperty -path $regPath -name IntegrationServicesServersList
+				    $oldRIS|select -ExpandProperty IntegrationServicesServersList|out-file $env:TEMP\oldris.txt
 				
-				$newRIS="dummy.wfo.verint.training:29522"
-				Set-ItemProperty -Path $regPath -name IntegrationServicesServersList -Value $newRIS
-				Start-Service *scree
-			}
-			
+				    $newRIS="dummy.wfo.verint.training:29522"
+				    Set-ItemProperty -Path $regPath -name IntegrationServicesServersList -Value $newRIS
+				    Start-Service *scree
+			    }
+            }			
 		}
 		fixFunction={
 			param($regPath)
-			Invoke-Command -ComputerName "ADVDSK9" -ArgumentList $regPath -ScriptBlock {
-				param($regPath)
-				get-service *screencapture*|stop-service
-				$newRIS=cat $env:TEMP\oldris.txt
-				Set-ItemProperty -Path $regPath -name IntegrationServicesServersList -Value $newRIS
-				Start-Service *scree
-			}
+            $Global:desktops|%{
+			    Invoke-Command -ComputerName $_ -ArgumentList $regPath -ScriptBlock {
+				    param($regPath)
+				    get-service *screencapture*|stop-service
+				    $newRIS=cat $env:TEMP\oldris.txt
+				    Set-ItemProperty -Path $regPath -name IntegrationServicesServersList -Value $newRIS
+				    Start-Service *scree
+			    }
+            }
 		}
 	}
+#>
 )
 
 ## END of excercise definition
@@ -276,7 +287,7 @@ $Global:excercises=@(
 function Break-HuntGroup{}
 function Fix-HuntGroup{}
 ############# EXCERCISE 9 #################### 
-#TODO 	9. Hosts file, app server false entry! -- this is rather infra.. Ris to rec rec to archiver… app server???
+#TODO 	9. Hosts file, app server false entry! -- this is rather infra.. Ris to rec rec to archiverâ€¦ app server???
 function Break-AppServerAddress{}
 function Fix-AppServerAddress{}
 ############# EXCERCISE 10 #################### 
