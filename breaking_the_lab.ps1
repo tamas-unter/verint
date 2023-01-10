@@ -1,4 +1,4 @@
-﻿<# v1.33 11/10/2022
+﻿<# v1.37 1/10/2023
 Scripts to break (and fix) recorder functionality - for training purposes
 
 
@@ -208,7 +208,7 @@ $Global:excercises=@(
 		breakFunction={
 			param($cffull)
 			[xml]$r=cat $cffull
-			$r.recordergeneral.callspath="X:\NoCallsHere"
+			$r.recordergeneral.callspath=""
 			$r.Save($cffull)
 		}
 	},
@@ -260,7 +260,7 @@ $Global:excercises=@(
 				
 				    $newRIS="dummy.wfo.verint.training:29522"
 				    Set-ItemProperty -Path $regPath -name IntegrationServicesServersList -Value $newRIS
-				    Start-Service *scree
+				    Start-Service *scree*
 			    }
             }			
 		}
@@ -278,6 +278,19 @@ $Global:excercises=@(
 		}
 	}
 #>
+#### TODO database change EM
+	,@{
+		role="INTEGRATION_FRAMEWORK"
+		## find avaya datasource file
+		confFile="\e$\Impact360\Software\ContactStore\RecorderGeneral.xml"
+		services= "capture"
+		breakFunction={
+			param($cffull)
+			[xml]$r=cat $cffull
+			$r.recordergeneral.callspath=""
+			$r.Save($cffull)
+		}
+	}
 )
 
 ## END of excercise definition
@@ -329,10 +342,13 @@ $labels=New-Object System.Windows.Forms.Label[] $excercise_count
 $breakers=New-Object System.Windows.Forms.Button[] $excercise_count
 $fixers=New-Object System.Windows.Forms.Button[] $excercise_count
 
+# need to stick to the documentation. excercise numbers are not contiguous
+$ex_numbers=1,2,3,4,5,6,7,11,13,16,24,25,26
+
 0..($excercise_count-1)|%{
     $labels[$_]=New-Object System.Windows.Forms.Label
     $labels[$_].AutoSize=$true
-    $labels[$_].Text=($_+1)
+    $labels[$_].Text=($ex_numbers[$_])
     $labels[$_].Location=New-Object System.Drawing.Point(15,(20+($_*30)))
 
     $breakers[$_]=New-Object System.Windows.Forms.Button
