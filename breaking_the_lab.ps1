@@ -87,7 +87,7 @@ Function Find-PhoneDatasources{
         }
 }
 
-#TODO multiple servers
+
 Function Get-AvayaConfigFile{
     (Find-PhoneDatasources|where t -eq Avaya).path
 }
@@ -163,7 +163,7 @@ Function Break-Config{
 # in this array, each element is containing the definition of the excercise. In case the $role is missing ($null), $confFile will be the argument for the breakFunction
 ## BEGINNING of excercise definition
 $Global:excercises=@(
-	#0: AvayaMRPassCode
+	#1: AvayaMRPassCode
 	@{
 		role="IP_RECORDER"
 		confFile="\e$\Impact360\Software\conf\IntegrationService.xml"
@@ -176,7 +176,7 @@ $Global:excercises=@(
 			$is.Save($cffull)
 		}
 	},
-	#1: NICConfiguration
+	#2: NICConfiguration
 	@{
 		role="IP_RECORDER"
 		confFile="\e$\Impact360\Software\contactstore\IPCaptureConfig.xml"
@@ -188,7 +188,7 @@ $Global:excercises=@(
 			$ipc.Save($cffull)
 		}
 	},
-	#2: ArchiveMedia
+	#3: ArchiveMedia
 	@{
 		role="ENTERPRISE_ARCHIVER"
 		confFile="\e$\Impact360\Software\ContactStore\ArchiverConfig.xml"
@@ -200,7 +200,7 @@ $Global:excercises=@(
 			$a.Save($cffull)
 		}
 	},
-	#3: CallsBuffer
+	#4: CallsBuffer
 	@{
 		role="IP_RECORDER"
 		confFile="\e$\Impact360\Software\ContactStore\RecorderGeneral.xml"
@@ -212,8 +212,7 @@ $Global:excercises=@(
 			$r.Save($cffull)
 		}
 	},
-	#4: TSAPI
-	## TODO> checksumutil is not needed here. in fact, we should avoid it
+	#5: TSAPI
 	@{
 		role="INTEGRATION_FRAMEWORK"
 		confFile='\C$\Program Files (x86)\Avaya\AE Services\TSAPI Client\TSLIB.INI'
@@ -231,22 +230,23 @@ $Global:excercises=@(
 				)
 			)			
 		}
-	}
-<#,
-	########TODO
-	#5: Extensions
+	},
+	#11: disable tsapi adapter
 	@{
 		role="INTEGRATION_FRAMEWORK"
-		confFile=""
+		confFile='\e$\Impact360\Software\Conf\IntegrationService.xml'
 		services="recorder integration"
 		breakFunction={
 			param($cffull)
-			
+			[xml]$r=cat $cffull
+			($r.IFService.Integrations.Integration|where Type -eq "TSAdapter").StartupType="Disabled"
+			$r.Save($cffull)
 		}
-	} #>
+	}
+
 <#
 ,
-	#5: SCMRis
+	#7: SCMRis
 	@{
 		confFile='HKLM:\SOFTWARE\WOW6432Node\Witness Systems\eQuality Agent\Capture\CurrentVersion\'
 		breakFunction={
@@ -279,18 +279,6 @@ $Global:excercises=@(
 	}
 #>
 #### TODO database change EM
-	,@{
-		role="INTEGRATION_FRAMEWORK"
-		## find avaya datasource file
-		confFile="\e$\Impact360\Software\ContactStore\RecorderGeneral.xml"
-		services= "capture"
-		breakFunction={
-			param($cffull)
-			[xml]$r=cat $cffull
-			$r.recordergeneral.callspath=""
-			$r.Save($cffull)
-		}
-	}
 )
 
 ## END of excercise definition
@@ -343,7 +331,7 @@ $breakers=New-Object System.Windows.Forms.Button[] $excercise_count
 $fixers=New-Object System.Windows.Forms.Button[] $excercise_count
 
 # need to stick to the documentation. excercise numbers are not contiguous
-$ex_numbers=1,2,3,4,5,6,7,11,13,16,24,25,26
+$ex_numbers=1,2,3,4,5,11,13,16,24,25,26
 
 0..($excercise_count-1)|%{
     $labels[$_]=New-Object System.Windows.Forms.Label
