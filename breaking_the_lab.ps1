@@ -294,7 +294,7 @@ $Global:excercises=@(
 				Invoke-Command -ComputerName $_ -ArgumentList $conffile -ScriptBlock {
 					param($java)
 					stop-service "Recorder Integration Service"
-					mv $java ($java.Replace("java.exe","j.exe"))
+					mv $java ($java.Replace("j.exe","java.exe"))
 					start-service "Recorder Integration Service"
 				}
 				
