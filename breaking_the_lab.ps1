@@ -242,7 +242,82 @@ $Global:excercises=@(
 			($r.IFService.Integrations.Integration|where Type -eq "TSAdapter").StartupType="Disabled"
 			$r.Save($cffull)
 		}
+	},
+	#13: ARCHIVER media location
+	@{
+		confFile='HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Shares'
+		breakFunction={
+			param($regPath)
+            Get-ServerAddressByRole "ENTERPRISE_ARCHIVER"|%{
+			    Invoke-Command -ComputerName $_ -ArgumentList $regPath -ScriptBlock {
+				    param($regPath)
+				    stop-service LanmanServer
+				    $oldRIS=Get-ItemProperty -path $regPath -name archive_media
+				    $oldRIS|select -ExpandProperty archive_media|out-file $env:TEMP\oldshare.txt
+				
+				    $newRIS=$oldRIS.Replace("K:","X:")
+				    Set-ItemProperty -Path $regPath -name archive_media -Value $newRIS
+				    Start-Service LanmanServer
+			    }
+            }			
+		}
+		fixFunction={
+			param($regPath)
+            Get-ServerAddressByRole "ENTERPRISE_ARCHIVER"|%{
+			    Invoke-Command -ComputerName $_ -ArgumentList $regPath -ScriptBlock {
+				    param($regPath)
+				    stop-service LanmanServer
+				    $newRIS=cat $env:TEMP\oldshare.txt
+				    Set-ItemProperty -Path $regPath -name archive_media -Value $newRIS
+				    Start-Service LanmanServer
+			    }
+            }
+		}
+	},
+	@{
+		conffile='E:\Impact360\Software\OpenJDK\bin\java.exe'
+		breakFunction={
+			param($conffile)
+			Get-ServerAddressByRole "INTEGRATION_FRAMEWORK"|%{
+				Invoke-Command -ComputerName $_ -ArgumentList $conffile -ScriptBlock {
+					param($java)
+					stop-service "Recorder Integration Service"
+					mv $java ($java.Replace("java.exe","j.exe"))
+					start-service "Recorder Integration Service"
+				}
+				
+			}
+		}
+		fixFunction={
+			param($conffile)
+			Get-ServerAddressByRole "INTEGRATION_FRAMEWORK"|%{
+				Invoke-Command -ComputerName $_ -ArgumentList $conffile -ScriptBlock {
+					param($java)
+					stop-service "Recorder Integration Service"
+					mv $java ($java.Replace("java.exe","j.exe"))
+					start-service "Recorder Integration Service"
+				}
+				
+			}
+			
+		}
 	}
+
+
+# network shares under this key
+## HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\LanmanServer\Shares
+<#
+CATimeout=0
+CSCFlags=0
+MaxUses=4294967295
+Path=K:\archive_media
+Permissions=0
+Remark=FOO bar
+ShareName=archive_media
+Type=0
+
+
+#>
 
 <#
 ,
