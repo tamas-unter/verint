@@ -274,6 +274,20 @@ $Global:excercises=@(
             }
 		}
 	},
+	#14: tlink definition 
+		role='INTEGRATION_FRAMEWORK'
+		services="recorder integration"
+		conffile='\e$\Impact360\Software\Conf\IntegrationService.xml'
+		breakFunction={
+			param($cffull)
+			[xml]$r=cat $cffull
+			($r|Select-Xml -namespace @{x=$r.IFService.xmlns} "//*/x:Integration[@Type='TSAdapter']/x:Set[@Key='ServiceId']").Node.Value="AVAX#BRRR#CSTA#AAA"
+			
+			
+			$r.Save($cffull)
+		}
+	}
+	#17: java path broken
 	@{
 		conffile='E:\Impact360\Software\OpenJDK\bin\java.exe'
 		breakFunction={
@@ -406,7 +420,7 @@ $breakers=New-Object System.Windows.Forms.Button[] $excercise_count
 $fixers=New-Object System.Windows.Forms.Button[] $excercise_count
 
 # need to stick to the documentation. excercise numbers are not contiguous
-$ex_numbers=1,2,3,4,5,11,13,16,24,25,26
+$ex_numbers=1,2,3,4,5,11,13,14,16,24,25,26
 
 0..($excercise_count-1)|%{
     $labels[$_]=New-Object System.Windows.Forms.Label
