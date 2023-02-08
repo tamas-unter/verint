@@ -1,4 +1,4 @@
-﻿<# v1.37 1/10/2023
+﻿<# v1.38 2/8/2023
 Scripts to break (and fix) recorder functionality - for training purposes
 
 
@@ -23,6 +23,7 @@ Function Restart-RecorderServices{
 		[Parameter(Mandatory=$true)] $role,
 		[Parameter(Mandatory=$true)] [string]$service
 	)
+	if($service.length -eq 0) {return}
 	Get-ServerAddressByRole $role|%{
 		Invoke-Command -ComputerName $_ -Args $service	{
 			Restart-Service $args[0]
@@ -35,6 +36,7 @@ Function Stop-RecorderService{
 		[Parameter(Mandatory=$true)] $server,
 		[Parameter(Mandatory=$true)] [string]$service
 	)
+	if($service.length -eq 0) {return}
 	Invoke-Command -ComputerName $server -Args $service {
 		get-service |where name -match "watchdog|$($Args[0])"|where starttype -eq "Automatic"|Stop-Service
 	}
@@ -45,6 +47,7 @@ Function Start-RecorderService{
 		[Parameter(Mandatory=$true)] $server,
 		[Parameter(Mandatory=$true)] [string]$service
 	)
+	if($service.length -eq 0) {return}
 	Invoke-Command -ComputerName $server -Args $service {
 		get-service |where name -match "watchdog|$($Args[0])"|where starttype -eq "Automatic"|Start-Service
 	}
@@ -275,6 +278,7 @@ $Global:excercises=@(
 		}
 	},
 	#14: tlink definition 
+	@{
 		role='INTEGRATION_FRAMEWORK'
 		services="recorder integration"
 		conffile='\e$\Impact360\Software\Conf\IntegrationService.xml'
@@ -286,8 +290,49 @@ $Global:excercises=@(
 			
 			$r.Save($cffull)
 		}
-	}
-	#17: java path broken
+	},
+	#24: maintenance mode
+	@{
+		role="IP_RECORDER"
+		services=""
+		conffile="http://127.0.0.1:29511/api/v1/maintenance/IPCapture"
+		breakFunction={
+			param($uri)
+			$json=@"
+{
+  "data" : {
+    "id" : "39",
+    "type" : "maintenanceRole",
+    "attributes" : {
+      "target" : {
+        "state" : "Maintenance"
+      }
+    }
+  }
+}			
+"@
+			Invoke-RestMethod -Method Patch -Uri $uri -Body $json
+		}
+		fixFunction={
+			param($uri)
+			$json=@"
+{
+  "data" : {
+    "id" : "39",
+    "type" : "maintenanceRole",
+    "attributes" : {
+      "target" : {
+        "state" : "Normal"
+      }
+    }
+  }
+}			
+"@
+			Invoke-RestMethod -Method Patch -Uri $uri -Body $json
+			
+		}
+	},
+	#25: java path broken
 	@{
 		conffile='E:\Impact360\Software\OpenJDK\bin\java.exe'
 		breakFunction={
@@ -315,6 +360,20 @@ $Global:excercises=@(
 			}
 			
 		}
+	},
+	#26: stop agent server - service stopping is nonstandard!
+	@{
+		breakFunction={
+			Get-ServerAddressByRole "INTEGRATION_FRAMEWORK"|%{
+				Stop-RecorderService -server $_ -service "Recorder Agent Server"
+			}
+		}
+		fixFunction={
+			Get-ServerAddressByRole "INTEGRATION_FRAMEWORK"|%{
+				Start-RecorderService -server $_ -service "Recorder Agent Server"
+			}
+		}
+		
 	}
 
 
