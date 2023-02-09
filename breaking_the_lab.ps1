@@ -23,7 +23,6 @@ Function Restart-RecorderServices{
 		[Parameter(Mandatory=$true)] $role,
 		[Parameter(Mandatory=$true)] [string]$service
 	)
-	if($service.length -eq 0) {return}
 	Get-ServerAddressByRole $role|%{
 		Invoke-Command -ComputerName $_ -Args $service	{
 			Restart-Service $args[0]
@@ -36,7 +35,6 @@ Function Stop-RecorderService{
 		[Parameter(Mandatory=$true)] $server,
 		[Parameter(Mandatory=$true)] [string]$service
 	)
-	if($service.length -eq 0) {return}
 	Invoke-Command -ComputerName $server -Args $service {
 		get-service |where name -match "watchdog|$($Args[0])"|where starttype -eq "Automatic"|Stop-Service
 	}
@@ -47,7 +45,6 @@ Function Start-RecorderService{
 		[Parameter(Mandatory=$true)] $server,
 		[Parameter(Mandatory=$true)] [string]$service
 	)
-	if($service.length -eq 0) {return}
 	Invoke-Command -ComputerName $server -Args $service {
 		get-service |where name -match "watchdog|$($Args[0])"|where starttype -eq "Automatic"|Start-Service
 	}
@@ -293,12 +290,14 @@ $Global:excercises=@(
 	},
 	#24: maintenance mode
 	@{
-		role="IP_RECORDER"
-		services=""
 		conffile="http://127.0.0.1:29511/api/v1/maintenance/IPCapture"
 		breakFunction={
 			param($uri)
-			$json=@"
+			
+			Get-ServerAddressByRole "IP_RECORDER"|%{
+				Invoke-Command -ComputerName $_ -ArgumentList $uri -ScriptBlock {
+					param($uri)
+					$json=@"
 {
   "data" : {
     "id" : "39",
@@ -311,11 +310,19 @@ $Global:excercises=@(
   }
 }			
 "@
-			Invoke-RestMethod -Method Patch -Uri $uri -Body $json
+					Invoke-RestMethod -Method Patch -Uri $uri -Body $json
+				}
+				
+			}
+			
 		}
 		fixFunction={
 			param($uri)
-			$json=@"
+			
+			Get-ServerAddressByRole "IP_RECORDER"|%{
+				Invoke-Command -ComputerName $_ -ArgumentList $uri -ScriptBlock {
+					param($uri)
+					$json=@"
 {
   "data" : {
     "id" : "39",
@@ -328,9 +335,12 @@ $Global:excercises=@(
   }
 }			
 "@
-			Invoke-RestMethod -Method Patch -Uri $uri -Body $json
-			
+					Invoke-RestMethod -Method Patch -Uri $uri -Body $json
+				}
+				
+			}
 		}
+
 	},
 	#25: java path broken
 	@{
