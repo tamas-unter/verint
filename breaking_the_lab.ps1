@@ -1,4 +1,4 @@
-﻿<# v1.38 2/8/2023
+﻿<# v1.40 2/9/2023
 Scripts to break (and fix) recorder functionality - for training purposes
 
 
@@ -308,7 +308,7 @@ $Global:excercises=@(
       }
     }
   }
-}			
+}
 "@
 					Invoke-RestMethod -Method Patch -Uri $uri -Body $json
 				}
@@ -333,7 +333,7 @@ $Global:excercises=@(
       }
     }
   }
-}			
+}
 "@
 					Invoke-RestMethod -Method Patch -Uri $uri -Body $json
 				}
