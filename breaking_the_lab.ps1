@@ -1,4 +1,4 @@
-﻿<# v1.43 2/10/2023
+﻿<# v1.44 2/10/2023
 Scripts to break (and fix) recorder functionality - for training purposes
 
 
@@ -252,8 +252,8 @@ $Global:excercises=@(
 			    Invoke-Command -ComputerName $_ -ArgumentList $regPath -ScriptBlock {
 				    param($regPath)
 				    stop-service LanmanServer
-				    $oldRIS=Get-ItemProperty -path $regPath -name archive_media
-				    $oldRIS|select -ExpandProperty archive_media|out-file $env:TEMP\oldshare.txt
+				    $oldRIS=Get-ItemProperty -path $regPath |select -ExpandProperty archive_media
+				    $oldRIS|out-file $env:TEMP\oldshare.txt
 				
 				    $newRIS=$oldRIS.Replace("K:","X:")
 				    Set-ItemProperty -Path $regPath -name archive_media -Value $newRIS
