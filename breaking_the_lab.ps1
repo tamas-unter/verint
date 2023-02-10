@@ -1,4 +1,4 @@
-﻿<# v1.42 2/10/2023
+﻿<# v1.43 2/10/2023
 Scripts to break (and fix) recorder functionality - for training purposes
 
 
@@ -324,7 +324,6 @@ $Global:excercises=@(
 					param($java)
 					stop-service "Recorder Integration Service"
 					mv $java ($java.Replace("java.exe","j.exe"))
-					start-service "Recorder Integration Service"
 				}
 				
 			}
@@ -334,7 +333,6 @@ $Global:excercises=@(
 			Get-ServerAddressByRole "INTEGRATION_FRAMEWORK"|%{
 				Invoke-Command -ComputerName $_ -ArgumentList $conffile -ScriptBlock {
 					param($java)
-					stop-service "Recorder Integration Service"
 					mv ($java.Replace("java.exe","j.exe")) $java
 					start-service "Recorder Integration Service"
 				}
