@@ -1,4 +1,4 @@
-﻿<# v1.40 2/9/2023
+﻿<# v1.42 2/10/2023
 Scripts to break (and fix) recorder functionality - for training purposes
 
 
@@ -289,53 +289,25 @@ $Global:excercises=@(
 		}
 	},
 	#24: maintenance mode
+	
 	@{
-		conffile="http://127.0.0.1:29511/api/v1/maintenance/IPCapture"
+		confFile="xxx"
 		breakFunction={
-			param($uri)
-			
+			$p=Get-MaintenanceRequest "Maintenance"
 			Get-ServerAddressByRole "IP_RECORDER"|%{
-				Invoke-Command -ComputerName $_ -ArgumentList $uri -ScriptBlock {
-					param($uri)
-					$json=@"
-{
-  "data" : {
-    "id" : "39",
-    "type" : "maintenanceRole",
-    "attributes" : {
-      "target" : {
-        "state" : "Maintenance"
-      }
-    }
-  }
-}
-"@
-					Invoke-RestMethod -Method Patch -Uri $uri -Body $json
+				Invoke-Command -ComputerName $_ -ArgumentList $p -ScriptBlock {
+					param($params)
+					Invoke-RestMethod @params
 				}
 				
 			}
-			
 		}
 		fixFunction={
-			param($uri)
-			
+			$p=Get-MaintenanceRequest "Normal"
 			Get-ServerAddressByRole "IP_RECORDER"|%{
-				Invoke-Command -ComputerName $_ -ArgumentList $uri -ScriptBlock {
-					param($uri)
-					$json=@"
-{
-  "data" : {
-    "id" : "39",
-    "type" : "maintenanceRole",
-    "attributes" : {
-      "target" : {
-        "state" : "Normal"
-      }
-    }
-  }
-}
-"@
-					Invoke-RestMethod -Method Patch -Uri $uri -Body $json
+				Invoke-Command -ComputerName $_ -ArgumentList $p -ScriptBlock {
+					param($params)
+					Invoke-RestMethod @params
 				}
 				
 			}
@@ -363,7 +335,7 @@ $Global:excercises=@(
 				Invoke-Command -ComputerName $_ -ArgumentList $conffile -ScriptBlock {
 					param($java)
 					stop-service "Recorder Integration Service"
-					mv $java ($java.Replace("j.exe","java.exe"))
+					mv ($java.Replace("java.exe","j.exe")) $java
 					start-service "Recorder Integration Service"
 				}
 				
@@ -386,7 +358,28 @@ $Global:excercises=@(
 		
 	}
 
-
+function Get-MaintenanceRequest{
+	param($state="Maintenance")
+	$rq=@{
+		data=@{
+			id="39"
+			type="maintenanceRole"
+			attributes=@{
+				target=@{
+					state=$state
+				}
+			}
+		}
+	}
+	
+	@{
+		Method="Patch";
+		Uri="http://localhost:8080/EMA/ema-api/api/configuration/maintenance/v1/39";
+		ContentType="application/json"; 
+		Body=($rq |ConvertTo-Json -Depth 3)
+	}
+	
+}
 # network shares under this key
 ## HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\LanmanServer\Shares
 <#
