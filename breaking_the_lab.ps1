@@ -1,4 +1,4 @@
-﻿<# v1.44 2/10/2023
+﻿<# v1.45 5/31/2023
 Scripts to break (and fix) recorder functionality - for training purposes
 
 
@@ -188,18 +188,7 @@ $Global:excercises=@(
 			$ipc.Save($cffull)
 		}
 	},
-	#3: ArchiveMedia
-	@{
-		role="ENTERPRISE_ARCHIVER"
-		confFile="\e$\Impact360\Software\ContactStore\ArchiverConfig.xml"
-		services="archiver"
-		breakFunction={
-			param($cffull)
-			[xml]$a=cat $cffull
-			$a.archiver.Devices.Device.DeviceTargets.DeviceTarget.PhysicalDevice="G:\archifoobar"
-			$a.Save($cffull)
-		}
-	},
+	
 	#4: CallsBuffer
 	@{
 		role="IP_RECORDER"
@@ -241,37 +230,6 @@ $Global:excercises=@(
 			[xml]$r=cat $cffull
 			($r.IFService.Integrations.Integration|where Type -eq "TSAdapter").StartupType="Disabled"
 			$r.Save($cffull)
-		}
-	},
-	#13: ARCHIVER media location
-	@{
-		confFile='HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Shares'
-		breakFunction={
-			param($regPath)
-            Get-ServerAddressByRole "ENTERPRISE_ARCHIVER"|%{
-			    Invoke-Command -ComputerName $_ -ArgumentList $regPath -ScriptBlock {
-				    param($regPath)
-				    stop-service LanmanServer
-				    $oldRIS=Get-ItemProperty -path $regPath |select -ExpandProperty archive_media
-				    $oldRIS|out-file $env:TEMP\oldshare.txt
-				
-				    $newRIS=$oldRIS.Replace("K:","X:")
-				    Set-ItemProperty -Path $regPath -name archive_media -Value $newRIS
-				    Start-Service LanmanServer
-			    }
-            }			
-		}
-		fixFunction={
-			param($regPath)
-            Get-ServerAddressByRole "ENTERPRISE_ARCHIVER"|%{
-			    Invoke-Command -ComputerName $_ -ArgumentList $regPath -ScriptBlock {
-				    param($regPath)
-				    stop-service LanmanServer
-				    $newRIS=cat $env:TEMP\oldshare.txt
-				    Set-ItemProperty -Path $regPath -name archive_media -Value $newRIS
-				    Start-Service LanmanServer
-			    }
-            }
 		}
 	},
 	#14: tlink definition 
@@ -480,7 +438,7 @@ $breakers=New-Object System.Windows.Forms.Button[] $excercise_count
 $fixers=New-Object System.Windows.Forms.Button[] $excercise_count
 
 # need to stick to the documentation. excercise numbers are not contiguous
-$ex_numbers=1,2,3,4,5,11,13,14,24,25,26
+$ex_numbers=1,2,4,5,11,14,24,25,26
 
 0..($excercise_count-1)|%{
     $labels[$_]=New-Object System.Windows.Forms.Label
