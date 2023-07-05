@@ -1,4 +1,4 @@
-﻿<# v1.45 5/31/2023
+﻿<# v1.46 7/5/2023
 Scripts to break (and fix) recorder functionality - for training purposes
 
 
@@ -438,7 +438,10 @@ $breakers=New-Object System.Windows.Forms.Button[] $excercise_count
 $fixers=New-Object System.Windows.Forms.Button[] $excercise_count
 
 # need to stick to the documentation. excercise numbers are not contiguous
-$ex_numbers=1,2,4,5,11,14,24,25,26
+# ## original numbering
+#$ex_numbers=1,2,4,5,11,14,24,25,26
+# ## ordinals
+$ex_numbers=1..20
 
 0..($excercise_count-1)|%{
     $labels[$_]=New-Object System.Windows.Forms.Label
