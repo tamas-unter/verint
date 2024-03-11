@@ -1,4 +1,4 @@
-﻿<# v1.46 7/5/2023
+﻿<# v1.47 3/11/2024
 Scripts to break (and fix) recorder functionality - for training purposes
 
 
@@ -108,13 +108,13 @@ Function Conf-2-Temp{param($confFile) $env:TEMP +"\"+ $confFile.Replace("\","_")
 Function Do-BreakExcercise{
 	param($sender,$e)
 	$index=$sender.TabIndex
-	Write-Host ("Breaking excercise {0}" -f $index)
+	Write-Host ("Breaking excercise {0}" -f ($index+1))
 	Break-Config -role $Global:excercises[$index].role -confFile $Global:excercises[$index].confFile -services $Global:excercises[$index].services -breakFunction $Global:excercises[$index].breakFunction
 }
 Function Do-FixExcercise{
 	param($sender,$e)
 	$index=$sender.TabIndex
-	Write-Host ("Fixing excercise {0}" -f $index)
+	Write-Host ("Fixing excercise {0}" -f ($index+1))
 	Fix-Config -role $Global:excercises[$index].role -confFile $Global:excercises[$index].confFile -services $Global:excercises[$index].services  -fixFunction $Global:excercises[$index].fixFunction
 }
 
