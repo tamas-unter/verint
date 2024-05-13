@@ -116,7 +116,7 @@ TODO: ls | select fullpath
 ls int*.log|Get-GapsInLogs|sort ticks -Descending | select -first 10
 #>
 function Get-GapsInLogs{
-param($threshold=1000000)
+param($threshold=1000000) #100 ms
 begin{$prevdate=get-date}
 process{
     foreach ($l in [System.IO.File]::ReadLines($_.fullname)){
@@ -161,6 +161,24 @@ function Get-Alarms{
                     $d[4]=$d[5,7,9,11]
                 }
              }#|ft
+    }
+}
+
+function Get-TaggedAttributes{
+    process{
+     $a=@();
+     $_|sls "\[nga.*6 tag (.*)$"|
+        %{
+            $b=@{};
+            $_.matches[0].groups[1].value -split ": "|%{
+                $c=$_ -split ":";
+                # 003a in the timestamps
+                $b.add($c[0],$c[1].replace("%003a",":"));
+            }
+            $a+=[pscustomobject]$b
+            }
+
+    $a
     }
 }
 
@@ -334,21 +352,6 @@ param ($comp = "Recorder")
 }                                                                                                                                
 #$tmpdate
 
-function New-DownloadsForCase{
-param ($casenumber=((pwd).Path.Split("\")|select -last 1))
-    $cl=$(Get-Clipboard)
-    if ($cl -match "^\d+$") {$dest="~\Downloads\$cl"} else {
-        $dest="~\Downloads\$casenumber"
-    }
-    mkdir -ErrorAction SilentlyContinue $dest
-    ls ~\Downloads\|where name -NotMatch "^\d+$" |%{
-        mv $_.FullName $dest
-    }
-    cd $dest
-    Unzip-AllRecursively
-}
-
-Set-Alias nd New-DownloadsForCase
 
 function Start-NotepadPlusPlus{
 	param ($excerpt=(get-clipboard)) 
@@ -357,6 +360,19 @@ function Start-NotepadPlusPlus{
 }
 Set-Alias n Start-NotepadPlusPlus
 
+function Find-FirstOccurrences{
+    param ($searchTerm=(get-clipboard))
+    process{
+    $_|
+        sls $searchTerm|
+        select Path, LineNumber|
+        group Path|%{
+            $p=$_.group[0];
+            np "-n$($p.LineNumber)" $p.Path 
+        }
+    }
+}
+Set-Alias ff Find-FirstOccurrences
 
 
 Function Get-VersionReport{ 
@@ -751,7 +767,8 @@ function Create-WebexAppointment{
         $a.ReminderMinutesBeforeStart=$reminderminutes
         $a.BusyStatus=[Microsoft.Office.Interop.Outlook.OlBusyStatus]::olBusy
         $a.Subject="verint case {0} - about {1}" -f $_.casenumber, $_.topic
-        $a.Body=([System.Text.Encoding]::UTF8).GetBytes($_.subject)
+#        $a.Body=([System.Text.Encoding]::UTF8).GetBytes($_.subject)
+        $a.Body=($_.subject)
         #olFormatHTML ??
         $a.BodyFormat=[Microsoft.Office.Interop.Outlook.OlBodyFormat]::olFormatRichText
         $r=$a.Recipients.Add($_.invitee)
@@ -772,8 +789,27 @@ function Create-WebexAppointment{
     }
 }
 function Webex{
-    param($casenumber,$about,$email)
+    param($casenumber,$about,$email=(Get-Clipboard))
     Get-WebexDetails $casenumber $about $email | Create-WebexAppointment
+}
+
+function wx-Invitation{
+    $alt1="In case you are not available or not willing to join right now, please help me scheduling our troubleshooting session by replying with a time preference."
+    $url="https://verintinc.webex.com/meet/tamas.pasztor"
+    $bridge="739 168 899"
+    $r="
+<h3>Please join my webex room</h3>
+<table>
+    <tr><td>link:</td><td><a href=""$url"">$url</a></td></tr>
+    <tr><td>bridge:</td><td><b>$bridge</b></td></tr>
+</table>
+<p>When there is an option, please ""notify host"" when you arrive.<br/>
+The bridge will be kept open for 30 minutes if idle. </p>
+<p>$alt1
+</p>
+"
+    Set-Clipboard $r
+    Write-Host -ForegroundColor Magenta "Invitation copied to the clipboard"
 }
 
 
@@ -802,8 +838,53 @@ $ex_75741_events=$hits|%{
 
 
 }
-function cdc{$dir="~\Downloads\$(Get-Clipboard)";cd $dir}
+function cdc{
+    $dir="~\CASES\$(Get-Clipboard)";
+    cd $dir
+    cd __FromCustomer__
+}
 Set-Alias c cdc
 
+function Find-InLogs{
+    param($pattern)
+    ls *.log|sls $pattern
+}
+Set-Alias f Find-Inlogs
+
+function Get-Manual{
+param(
+    [Parameter(Mandatory=$true)]$searchTerm,
+    [string]$version="15.2"
+)
+    $basedir="~\Verint Systems Ltd"
+    $locations=@{
+        "11.1"="WFO Always On Library - Impact 360 V11.1 SP1 Documents\Impact 360 Documents\Documents";
+        "15.1"="WFO Always On Library - WFO and CA V15.1 Documentation\WFO_V15.1_Always_On_Documentation\Documents"
+        "15.2"="WFO Always On Library - WFO and CA V15.2 Documentation\Documents"
+    }
+    $results=ls "$basedir\$($locations[$version])" |where name -Match $searchTerm
+    if($results.count -eq 1){
+        # I'm feeling lucky
+        Write-Host -NoNewline -ForegroundColor Green "Congratulations - ";Write-Host "there is only a single hit: $($results[0].Name)"
+        start $results[0].FullName
+    }else{ 
+        if ($results.count -eq 2){
+            # there is a pdf and a non-pdf
+            Write-Host -NoNewline -ForegroundColor Green "Launching non-pdf version - ";Write-Host "$($results[0].Name)"
+            start ($results|where name -NotMatch "\.pdf$"|select -ExpandProperty fullname)
+        }else{ 
+            if ($results.count -eq 0){ 
+                Write-host -ForegroundColor Red "No hits"
+            } else{
+                Write-Host -NoNewline -ForegroundColor Yellow "There are multiple hits - "; Write-Host "refine your search..."
+                Write-Host ("═"*47)
+                $results | select -ExpandProperty name
+            }
+        }
+    }
+}
+
+
 #### INIT
-cd ~\Downloads
+Add-Type -Path C:\windows\assembly\gac_msil\Microsoft.Office.Interop.Outlook\15.0.0.0__71e9bce111e9429c\Microsoft.Office.Interop.Outlook.dll
+#cd ~\CASES

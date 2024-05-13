@@ -7,9 +7,59 @@ $email
 #api user
 $cred=@{user;password}
 #>
-. .\secrets.ps1
+ipmo "~\OneDrive - Verint Systems Ltd\ps\secrets.ps1"
+function activity_emoji{
+param($a)
+
+    switch ($a){
+        "VAS_TKS_Recorder" {"🏠"}
+        "VAS_TKS_Recorder_Hybrid" {"☁"}
+        default {"⭐"}
+    }
+}
 
 
+
+
+function Create-AppointmentsForToday{
+	begin{
+		$ol=New-Object -ComObject outlook.application
+        $calendar=$ol.Session.GetDefaultFolder([Microsoft.Office.Interop.Outlook.OlDefaultFolders]::olFolderCalendar)
+	}
+	process{
+		$start=$_.from
+		$end=$_.to
+		
+		if($_.with.length -eq 0){
+			$subject="TW ALONE";
+		} else{
+			$subject="TW #$($_.sequence) with $($_.with)"
+		}
+
+		$body=@"
+$($_.schedule)
+
+Previous Hour: `t$($_.before)
+Next Hour:   `t$($_.after)
+"@
+		$a=$calendar.Application.CreateItem(1)
+		$a.MeetingStatus=0
+		$a.Start=$start
+		$a.End=$end
+		$a.RequiredAttendees=$email
+		$a.ReminderSet=$true
+        $a.ReminderMinutesBeforeStart=0
+		$a.Subject=$subject
+		$a.Location=$_.activity
+		$a.Body=$body
+		$a.Categories="TicketWatch"
+		$a.Save()
+		Write-Host ("{0:HH:mm}-{1:HH:mm}: {2}" -f $start,$end,$subject)
+	}
+    end{
+        Write-Host "."
+    }
+}
 
 $wfo="wfo.f2.verintcloudservices.com"
 $uri="https://$wfo/wfo/rest/core-api/auth/token"
@@ -105,59 +155,9 @@ $r|%{
 }|Out-GridView
 
 
-function activity_emoji{
-param($a)
 
-    switch ($a){
-        "VAS_TKS_Recorder" {"🏠"}
-        "VAS_TKS_Recorder_Hybrid" {"☁"}
-        default {"⭐"}
-    }
-}
-
-
-
-
-function Create-AppointmentsForToday{
-	begin{
-		$ol=New-Object -ComObject outlook.application
-        $calendar=$ol.Session.GetDefaultFolder([Microsoft.Office.Interop.Outlook.OlDefaultFolders]::olFolderCalendar)
-	}
-	process{
-		$start=$_.from
-		$end=$_.to
-		
-		if($_.with.length -eq 0){
-			$subject="TW ALONE";
-		} else{
-			$subject="TW #$($_.sequence) with $($_.with)"
-		}
-
-		$body=@"
-$($_.schedule)
-
-Previous Hour: `t$($_.before)
-Next Hour:   `t$($_.after)
-"@
-		$a=$calendar.Application.CreateItem(1)
-		$a.MeetingStatus=0
-		$a.Start=$start
-		$a.End=$end
-		$a.RequiredAttendees=$email
-		$a.ReminderSet=$true
-        $a.ReminderMinutesBeforeStart=0
-		$a.Subject=$subject
-		$a.Location=$_.activity
-		$a.Body=$body
-		$a.Categories="TicketWatch"
-		$a.Save()
-		Write-Host ("{0:HH:mm}-{1:HH:mm}: {2}" -f $start,$end,$subject)
-	}
-    end{
-        Write-Host "."
-    }
-}
 
 
 #### create the outlook items
 $mywatches|Create-AppointmentsForToday
+
