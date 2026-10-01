@@ -137,14 +137,16 @@ process{
 # --- internal
 function Get-Timestamp{
 param($line)
-    get-date $line.Substring(20,23)
+    try{get-date $line.Substring(20,23)}
+    catch{$null}
 }
 
 # --- RIS log functions - expects (ls integrationservice*.xml) as input
 
 function Get-RisAlarms{
     process{
-        $_|Collect-Hits "raisealarm<([^>]+)> instance<([^>]+)>+ params<([^>]+)>" @("alarm","instance","params")
+        # fixed instance * instead of + (empty instance would not match)
+        $_|Collect-Hits "raisealarm<([^>]+)> instance<([^>]*)>+ params<([^>]+)>" @("alarm","instance","params")
     }
 }
 
@@ -191,7 +193,12 @@ function Get-RISHostname{
 
 function Get-RisVersion{
 # this is HFR9
-    ls -Recurse int*.log|sls "\[VersionMai.*Core Service v([0-9\.]+)"|select -first 1 @{l="v";e={$_.matches[0].groups[1].value} }|select -ExpandProperty v
+    ls -Recurse int*.log|sls "\[VersionMai.*Core Service v([0-9\.]+).*(KB\d+)"|%{
+        [pscustomobject]@{
+            release=$_.matches[0].groups[1].value;
+            patch=$_.matches[0].groups[2].value 
+        }
+     }|select -first 1
 # TODO: pre-HFR8
 }
 
@@ -235,7 +242,7 @@ process{
 }
 }
 
-function Get-CTIEvents{
+function Save-CTIEvents{
     param($callids)
     $callids|%{
         (
@@ -247,6 +254,50 @@ function Get-CTIEvents{
         )|
         where {$_ -match "^\[iemess"}
     }|Out-File calls.txt
+}
+
+function Get-AvayaCTIEventsByExtension{
+    param($ext)
+    ls int*.log|
+
+        sls "monitoreddevice> = $ext" -context 2,20|%{ 
+            [pscustomobject] @{
+                time=Get-Timestamp ($_.context.precontext|where {$_ -match "^\[IE"}); 
+                event= $_.context.precontext|sls "description> = (.+)$"|%{$_.matches[0].groups[1].value}; 
+                callid= $_.context.postcontext|sls "callId> = (\d+) "|%{$_.matches[0].groups[1].value|select -first 1}
+             }
+        }
+
+
+
+}
+
+function Get-AvayaCTIEventsByCallID{
+    param($callid)
+    ls int*.log|
+
+        sls "callID> = $callid" -context 12,20|%{ 
+            [pscustomobject] @{
+                time=Get-Timestamp ($_.context.precontext|where {$_ -match "^\[IE"}); 
+                event= $_.context.precontext|sls "description> = (.+)$"|%{$_.matches[0].groups[1].value}; 
+                deviceid= $_.context.postcontext|sls "deviceid> = (\d+) "|%{$_.matches[0].groups[1].value|select -first 1}
+             }
+        }
+
+
+
+}
+
+function Get-OneCloudEventsByEngagementID{
+    param($adapterid,$engagementid)
+    ls int*.log|
+        sls -context 0,20 "^\[IEMess.*<si.$adapterid>"|
+            where {$_.context.postcontext -match "Str<engagementId> = $engagementid"} |%{
+                [pscustomobject]@{
+                    time=Get-Timestamp($_.line);
+                    event=($_.context.postcontext|sls "Str<event> = ([^;]+) ;"|%{$_.matches[0].groups[1].value})
+                }
+            }
 }
 
 function Get-OSVEventsForCall{
@@ -281,11 +332,14 @@ process{ $_|
 }
 
 function Get-SipMessages{
+param ($callid)
 process{
     $_|
         sls "\[(SipObject.*sent|ProxySipLi.*receive)" -context 0,50|
         %{
-            "`n";$_.line;($_.context.postcontext|sls "^[^\[]")
+            if($_.context.postcontext -match "Call-ID: $callid"){
+                "`n";$_.line;($_.context.postcontext|sls "^[^\[]")
+            }
         }
 }
 }
@@ -359,6 +413,13 @@ function Start-NotepadPlusPlus{
 	np "-n$($p[1])" $p[0]
 }
 Set-Alias n Start-NotepadPlusPlus
+
+ Function Goto-Timestamp{
+    param($datetime=(get-clipboard)) 
+    ls *.log | sls $datetime | select -first 1 | % {
+        Start-NotepadPlusPlus -excerpt "$($_.filename):$($_.linenumber)"
+    }
+ }
 
 function Find-FirstOccurrences{
     param ($searchTerm=(get-clipboard))
@@ -808,11 +869,11 @@ The bridge will be kept open for 30 minutes if idle. </p>
 <p>$alt1
 </p>
 "
-    Set-Clipboard $r
+    Set-Clipboard -AsHtml $r
     Write-Host -ForegroundColor Magenta "Invitation copied to the clipboard"
 }
 
-
+############# what is this???????
 if($false){
 
 # find all occurrences for CTI event regarding extension 75741
@@ -838,6 +899,11 @@ $ex_75741_events=$hits|%{
 
 
 }
+
+
+
+
+
 function cdc{
     $dir="~\CASES\$(Get-Clipboard)";
     cd $dir
@@ -884,7 +950,58 @@ param(
     }
 }
 
+function Get-LatestPatches{
+    param($s)
+    $ver="15.2%20FP0"
+    $subsystems=@("ADAM Access Layer","ADAM Access Layer WS","AlarmAPI","AlarmFramework","Alerts","Amazon Connect Survey Service","AQM Engine","AQM Orchestrator","AQM Poller","AQM Scoring Rules Builder","Archive Database","Archiver","ArchiveWS_IIS","Audit","Automated Verification Agent","Automated Verification Core","Automated Verification Database","Automated Verification UI","Biometrics Application","Biometrics Database Installation","Biometrics Database Meta Data","CF ETL","CF Integration Server Plugin","CF Reports","CF Reports Languages","Common Database","Common Interaction Viewer","Consolidator","Contact Data Model WS","Contact Database","Contact Database Role Meta Data","Contact Flow","Contact OLTP Database","ContentServer","Corpus Manager","Crypto SDK","Crypto64","Customer Feedback","Dashboard","Data Access Services","Data Access Services WS","Data Analytics QM Database Plugin","Database Directory Sync","Database Integration Services Role Meta Data","DataUpdate","DPA Application (Services)","DPA Application (Web)","DPA Application (Web) Languages","DPA Database","DPA Database Role Meta Data","DPA Online Help","DPA Path UI","DPA SSRS Reports","DPA SSRS Reports languages","EMA","Enterprise Manager","Enterprise Manager Database","Enterprise Manager Web UI","Extraction Engine","Feature Flag","Foundation License Installer","IAF API","Infrastructure Enhanced","Ingestion Web Service","Insight Center Application","Integration Server UUM Adapter","IntegrationService","Interaction Analytics Export Service","Interaction Analytics Services","Interaction Applications Role Meta Data","Interaction Configuration Plugin","Interaction Data Warehouse","Interaction Data Warehouse Role Meta Data","Interaction Localization Pack","Interaction SSRS Reports","Interaction Web Applications","IPCapture","Key Proxy WS","L10n_framework apps_flatfiles","L10n_framework_BPmainDB","L10n_framwork_apps_staticfiles","L10n_online_help","Locator","Platform Audio Streamer","Platform Backend Services","Platform Mission Manager","Platform Objects Manager","Platform Services","Player online help","PlayerUI","Pop-up Server","PPFWAgent","PPFWCenter","Project Rules Manager","QM Authentication","QM Database","QM Database Role Meta Data","QM Online Help","Real Time Speech Notification","RecAncillary","RecConfig","Recorder Control Gateway","Recorder Reports","RecorderAnalyticsFramework","Recording Compliance ETL","Recording Compliance Reporting","Recording Compliance Reporting Languages","RecUtils","RM","RSCommon","RSCommonOEM","Secure Gateway","Shared UI Components","Speech Analytics Online Help","Speech Analytics Portal","Speech Categorization x64","Speech Transcription Engine","Survey Server","Survey Server Role","TDMScreen","Teleflow Server","Text Analytics Application","TextCapture","Transcription Repository Service","Transformer Adapter","UCM","Web Form Designer","WebSvcs","Workflow2")
+    $subsystem=$subsystems|where {$_ -match $s}|select -first 1
+    $url="https://connect.verint.com/pb_LatestKBsBySubsystemNew?language=en-US&rp:HFStream=$ver&rp:Subsystem=$subsystem"
+    if($subsystem -ne ""){    start $url}
+    else{Write-Host "no such component: $s"}
+}
+
+function RDP{
+    param($region="amer")
+    if ($region -eq "amer" ){
+        mstsc /g:access-amer.verintcloudservices.com /v:rdp1-root-use2.verintcloudservices.com
+    } else {
+        mstsc /g:access-emea.verintcloudservices.com /v:rdp1-root-euc1.verintcloudservices.com
+    }
+}
 
 #### INIT
 Add-Type -Path C:\windows\assembly\gac_msil\Microsoft.Office.Interop.Outlook\15.0.0.0__71e9bce111e9429c\Microsoft.Office.Interop.Outlook.dll
 #cd ~\CASES
+
+# SIG # Begin signature block
+# MIIFbQYJKoZIhvcNAQcCoIIFXjCCBVoCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
+# gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNpWcLcmB8olebPR9T+6YkjjF
+# pSqgggMIMIIDBDCCAeygAwIBAgIQGBcyty7cFrZDfL0x3Dyg2zANBgkqhkiG9w0B
+# AQsFADAaMRgwFgYDVQQDDA9Qw6FzenRvciBUYW3DoXMwHhcNMjYwNDA4MTY0MTM4
+# WhcNMjcwNDA4MTcwMTM4WjAaMRgwFgYDVQQDDA9Qw6FzenRvciBUYW3DoXMwggEi
+# MA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDTgh8TsG2Szup66jFsBgwMLAaK
+# 1wJSJiiWM9sFlIdOZ15+SoKoP+w3gR6S6Sq4d0/+jXK9Z1Df3sBBzt2Ti0Btuq7s
+# chikqMRcyb3fS6qCgM4VwaMEgOhT4Eq/sLjQFGRbk0JkOBuyAJaUJvLX/nqhirJt
+# i5Zxsa+Vzbsxgwsz/PGIyi5zhVl9o7z1ijxgPhjB8DNQxgO+KRO7jMgXs0cUguBU
+# /J1pASzp9DQh3L/riSOdo0XykL9/Chj8sD2l56XxiO9ycn0UFn/GDASm2j3bpZB+
+# dmijks/TRSk8MPRpM7Am+wTltrQkhyseh5di2B5lSU38nM7OvznYp7Pg1jv5AgMB
+# AAGjRjBEMA4GA1UdDwEB/wQEAwIHgDATBgNVHSUEDDAKBggrBgEFBQcDAzAdBgNV
+# HQ4EFgQUIi9tK/EtLCoxxH1IaNJjv0g5cQMwDQYJKoZIhvcNAQELBQADggEBAJnY
+# ZpFvuYYeAC0P+iFvTuFuqAUcMOfhh9416B3uEApUmDlVGRCBiYahuDGs0/tVgDw4
+# FsLi451sMwPJxofTXZhRbIAyKz7jgUTvsbpB6sysg1cN7Igm6FMfsE7/Zt652DSz
+# BNFEoXslQMzVknCfZYpsAha9PTYkBzjpEaIiUC3ovtW/toG4VIuyoQyEtmUaeg/W
+# NoPgrARY0X0U31b998yKfSZkweta0VAe5DjsJkxFkS+FnPnUnfvVHIfXqCndVLZ1
+# iXHyZkwEedq/3rK4TDdIN9AKtAKGa/iUk1V8NQDSemz9r902xacobjBh1GzUrEAz
+# e3i1+hf2WaoOrC/3nOMxggHPMIIBywIBATAuMBoxGDAWBgNVBAMMD1DDoXN6dG9y
+# IFRhbcOhcwIQGBcyty7cFrZDfL0x3Dyg2zAJBgUrDgMCGgUAoHgwGAYKKwYBBAGC
+# NwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgor
+# BgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU+jUByvCb
+# sEcwG4l0DFfb6Bnf9YYwDQYJKoZIhvcNAQEBBQAEggEArxGtawjZ+fl1rjqlZoQM
+# DTzJqC2dg5MxrmalNnW11Z95QngnXjQ6GoZSprEoaWJ9QEiPFLmmkMHyioODN86R
+# Y1lsGnLCfVfaBf36L4SX8B9CB88dR3/szByRPhxbHC8j7m8AXVc3PEUrJ3fRmkeU
+# KdUKIybgGLWqPhfU84wszCUgit192zBgxi+X+PnC4AOixM2OBTSNW9ANFrEtN19m
+# OQ+nnH1nRmCGpgSPqauajbPQr/itg0A7w5L42P13rK4rlsgGo2Oe3Z4fEbpPeUvS
+# 1BHBPmkNcgsjkB9MQ6RYIHN/QtsGocOpY6D9JfHYApxeBkI/LXTzeSoVZrdxkLlZ
+# iw==
+# SIG # End signature block
